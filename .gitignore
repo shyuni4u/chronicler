@@ -8,6 +8,7 @@ phases/state/
 
 # Environment
 .env
+.env.local
 
 # Dependencies
 node_modules/
@@ -15,3 +16,6 @@ __pycache__/
 
 # Next.js
 .next/
+
+# Database
+chronicler.db
