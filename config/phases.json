@@ -1,0 +1,36 @@
+{
+  "phases": [
+    {
+      "id": "01_world_building",
+      "name": "World Building",
+      "agents": [
+        { "id": "world_builder", "depends_on": [] }
+      ]
+    },
+    {
+      "id": "02_characters",
+      "name": "Characters",
+      "depends_on_phase": "01_world_building",
+      "agents": [
+        { "id": "character_designer", "depends_on": [] }
+      ]
+    },
+    {
+      "id": "03_plot",
+      "name": "Plot Architecture",
+      "depends_on_phase": "02_characters",
+      "agents": [
+        { "id": "plot_architect", "depends_on": [] }
+      ]
+    },
+    {
+      "id": "04_chapter_N",
+      "name": "Chapter Writing",
+      "depends_on_phase": "03_plot",
+      "agents": [
+        { "id": "writer", "depends_on": [] },
+        { "id": "editor", "depends_on": ["writer"] }
+      ]
+    }
+  ]
+}
