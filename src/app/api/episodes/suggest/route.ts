@@ -1,6 +1,6 @@
-import { EpisodeAgent } from '@/lib/agents/episode-agent'
+import { EpisodeAgent, SUGGEST_SYSTEM } from '@/lib/agents/episode-agent'
 import { getBible } from '@/lib/server'
-import { claudeStream, stripCodeFence, type StreamToken } from '@/lib/claude-cli'
+import { claudeStream, stripCodeFence } from '@/lib/claude-cli'
 
 export async function POST() {
   const bible = getBible()
@@ -9,7 +9,6 @@ export async function POST() {
 
   const bibleText = Object.entries(bible.readAll()).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
   const prompt = `현재 바이블:\n${bibleText}\n\n에피소드 후보 5개를 JSON으로 제안해주세요.`
-  const systemPrompt = 'You are an episode designer for a novel writing system. Given the current bible, suggest 5 episode candidates — one from each category: 한국 전래동화, 동아시아 신화, 서양 신화, 서양 동화, 중동/인도 설화. Each episode should have a unique twist (hook). Respond with valid JSON only. Write in Korean.'
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -17,7 +16,7 @@ export async function POST() {
       let resultText = ''
 
       try {
-        for await (const token of claudeStream(prompt, systemPrompt)) {
+        for await (const token of claudeStream(prompt, SUGGEST_SYSTEM)) {
           if (token.type === 'thinking') {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'thinking', content: token.content })}\n\n`)
@@ -33,6 +32,7 @@ export async function POST() {
         }
 
         const raw = stripCodeFence(resultText || textParts.join(''))
+        console.log(`[suggest] raw (${raw.length} chars): ${raw.slice(0, 200)}...`)
         if (!raw) throw new Error('Empty response from Claude')
         const result = agent.normalizeSuggest(JSON.parse(raw))
         controller.enqueue(

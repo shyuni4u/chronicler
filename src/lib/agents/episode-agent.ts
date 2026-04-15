@@ -2,24 +2,62 @@ import { claudePrompt } from '@/lib/claude-cli'
 import { BaseAgent } from './base'
 import type { AgentContext } from '@/lib/types'
 
-const SUGGEST_SYSTEM = `You are an episode designer for a novel writing system.
-Given the current bible, suggest 5 episode candidates — one from each category:
-한국 전래동화, 동아시아 신화, 서양 신화, 서양 동화, 중동/인도 설화.
-Each episode should have a unique twist (hook). Respond with valid JSON only. Write in Korean.`
+const SUGGEST_SYSTEM = `당신은 소설 "Chronicler"의 에피소드 설계 전문가입니다.
 
-const DETAIL_SYSTEM = `You are an episode designer. Given an episode idea, create a detailed design with:
-entry_point, original_story, divergence, inspiration, possible_endings (2-3).
-Respond with valid JSON only. Write in Korean.`
+세계관:
+- 신화/전설/동화가 실제로 존재하는 세계
+- 집단 기억 오염으로 각 이야기에 설정 오류 발생
+- 주인공 이음이 결을 건너 오류를 발견하고 개입
+- 해피엔딩 보장 없음
+
+바이블을 기반으로 에피소드 후보 5개를 제안하세요.
+각 카테고리에서 하나씩: 한국 전래동화, 동아시아 신화, 서양 신화, 서양 동화, 중동/인도 설화
+
+반드시 JSON만 반환. 다른 텍스트 없이.
+형식:
+{
+  "episodes": [
+    {
+      "id": 1,
+      "title": "에피소드 제목",
+      "origin": "원전 이야기 이름",
+      "culture": "문화권",
+      "twist": "어긋난 설정 한 줄 요약",
+      "mood": "에피소드 분위기",
+      "hook": "이음이 처음 느끼는 이질감 한 줄 묘사"
+    }
+  ]
+}`
+
+const DETAIL_SYSTEM = `당신은 소설 "Chronicler"의 에피소드 설계 전문가입니다.
+
+에피소드 상세 설계 원칙:
+- 진입 순간: 이음이 결을 건너는 감각적 묘사
+- 오류: 설정 하나가 어긋난 구체적 내용과 파장
+- 영감의 순간: 이야기 흐름을 거스를 수 있는 결정적 순간
+- 결말: 성공과 실패 모두 유효
+
+반드시 JSON만 반환. 다른 텍스트 없이.
+형식:
+{
+  "opening": "이음의 결 진입 묘사 2-3문장",
+  "original": "원래 이야기 흐름 2-3문장",
+  "error": "어긋난 설정과 파장 2-3문장",
+  "inspiration_moment": "영감을 쓸 수 있는 순간 1-2문장",
+  "possible_endings": ["결말 후보 1 (성공 또는 부분 성공)", "결말 후보 2 (실패 또는 씁쓸한 결말)"]
+}`
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function normalizeSuggestResponse(raw: any) {
   const episodes = raw.episodes || raw
   return {
     episodes: (Array.isArray(episodes) ? episodes : []).map((ep: any) => ({
-      id: ep.id || ep.episode_id || `ep_${Date.now()}`,
-      category: ep.category || '',
+      id: ep.id || `ep_${Date.now()}`,
       title: ep.title || '',
-      summary: ep.summary || '',
+      origin: ep.origin || '',
+      culture: ep.culture || ep.category || '',
+      twist: ep.twist || ep.summary || '',
+      mood: ep.mood || '',
       hook: ep.hook || '',
     })),
   }
@@ -27,11 +65,10 @@ function normalizeSuggestResponse(raw: any) {
 
 function normalizeDetailResponse(raw: any) {
   return {
-    episodeId: raw.episodeId || raw.episode_id || '',
-    entryPoint: raw.entryPoint || raw.entry_point || '',
-    originalStory: raw.originalStory || raw.original_story || '',
-    divergence: raw.divergence || '',
-    inspiration: raw.inspiration || '',
+    opening: raw.opening || raw.entryPoint || raw.entry_point || '',
+    original: raw.original || raw.originalStory || raw.original_story || '',
+    error: raw.error || raw.divergence || '',
+    inspirationMoment: raw.inspirationMoment || raw.inspiration_moment || raw.inspiration || '',
     possibleEndings: raw.possibleEndings || raw.possible_endings || [],
   }
 }
@@ -63,3 +100,5 @@ export class EpisodeAgent extends BaseAgent {
   normalizeSuggest = normalizeSuggestResponse
   normalizeDetail = normalizeDetailResponse
 }
+
+export { SUGGEST_SYSTEM, DETAIL_SYSTEM }

@@ -3,19 +3,20 @@
 import { useState, useEffect, useRef } from 'react'
 
 interface EpisodeCandidate {
-  id: string
-  category: string
+  id: string | number
   title: string
-  summary: string
+  origin: string
+  culture: string
+  twist: string
+  mood: string
   hook: string
 }
 
 interface EpisodeDetail {
-  episodeId: string
-  entryPoint: string
-  originalStory: string
-  divergence: string
-  inspiration: string
+  opening: string
+  original: string
+  error: string
+  inspirationMoment: string
   possibleEndings: string[]
 }
 
@@ -210,7 +211,7 @@ export function EpisodeSelector() {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ episode_id: ep.id, episode_summary: ep.summary }),
+        body: JSON.stringify({ episode_id: ep.id, episode_summary: ep.twist }),
       },
       addThinking,
       addText,
@@ -236,12 +237,14 @@ export function EpisodeSelector() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          episode_id: detail.episodeId,
+          episode_id: selected.id,
           title: selected.title,
-          entry_point: detail.entryPoint,
-          original_story: detail.originalStory,
-          divergence: detail.divergence,
-          inspiration: detail.inspiration,
+          origin: selected.origin,
+          culture: selected.culture,
+          opening: detail.opening,
+          original: detail.original,
+          error: detail.error,
+          inspiration_moment: detail.inspirationMoment,
           possible_endings: detail.possibleEndings,
         }),
       })
@@ -300,11 +303,15 @@ export function EpisodeSelector() {
                 onClick={() => handleSelect(ep)}
                 className="bg-gray-900 border border-gray-800 hover:border-indigo-500 rounded-xl p-6 text-left transition-colors"
               >
-                <span className="text-xs font-medium text-indigo-400 uppercase tracking-wider">
-                  {ep.category}
-                </span>
-                <h3 className="text-lg font-semibold mt-2 mb-2">{ep.title}</h3>
-                <p className="text-gray-400 text-sm mb-3">{ep.summary}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-medium text-indigo-400 uppercase tracking-wider">
+                    {ep.culture}
+                  </span>
+                  {ep.mood && <span className="text-xs text-gray-500">| {ep.mood}</span>}
+                </div>
+                <h3 className="text-lg font-semibold mb-1">{ep.title}</h3>
+                <p className="text-gray-500 text-xs mb-2">{ep.origin}</p>
+                <p className="text-gray-400 text-sm mb-3">{ep.twist}</p>
                 <p className="text-indigo-300 text-sm italic">&ldquo;{ep.hook}&rdquo;</p>
               </button>
             ))}
@@ -322,25 +329,26 @@ export function EpisodeSelector() {
 
       {phase === 'detailing' && detail && selected && (
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold mb-2">{selected.title}</h2>
-          <p className="text-indigo-400 text-sm mb-6">{selected.category}</p>
+          <h2 className="text-2xl font-bold mb-1">{selected.title}</h2>
+          <p className="text-indigo-400 text-sm mb-1">{selected.culture} | {selected.origin}</p>
+          <p className="text-gray-500 text-sm mb-6">{selected.twist}</p>
 
           <div className="space-y-6">
             <section>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">진입 순간</h3>
-              <p className="text-gray-200">{detail.entryPoint}</p>
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">결 진입</h3>
+              <p className="text-gray-200">{detail.opening}</p>
             </section>
             <section>
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">원래 이야기</h3>
-              <p className="text-gray-200">{detail.originalStory}</p>
+              <p className="text-gray-200">{detail.original}</p>
             </section>
             <section>
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">어긋난 설정</h3>
-              <p className="text-gray-200">{detail.divergence}</p>
+              <p className="text-gray-200">{detail.error}</p>
             </section>
             <section>
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">영감의 순간</h3>
-              <p className="text-gray-200">{detail.inspiration}</p>
+              <p className="text-gray-200">{detail.inspirationMoment}</p>
             </section>
             <section>
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">가능한 결말</h3>

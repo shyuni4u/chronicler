@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { EpisodeAgent } from '@/lib/agents/episode-agent'
+import { EpisodeAgent, DETAIL_SYSTEM } from '@/lib/agents/episode-agent'
 import { getBible } from '@/lib/server'
 import { claudeStream, stripCodeFence } from '@/lib/claude-cli'
 
@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
 
   const bibleText = Object.entries(bible.readAll()).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
   const prompt = `바이블:\n${bibleText}\n\n에피소드 ID: ${body.episode_id}\n${body.episode_summary ?? ''}\n\n상세 설계를 JSON으로 작성해주세요.`
-  const systemPrompt = 'You are an episode designer. Given an episode idea, create a detailed design with: entry_point, original_story, divergence, inspiration, possible_endings (2-3). Respond with valid JSON only. Write in Korean.'
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
       let resultText = ''
 
       try {
-        for await (const token of claudeStream(prompt, systemPrompt)) {
+        for await (const token of claudeStream(prompt, DETAIL_SYSTEM)) {
           if (token.type === 'thinking') {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'thinking', content: token.content })}\n\n`)
