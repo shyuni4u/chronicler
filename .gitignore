@@ -1,0 +1,17 @@
+# Novel content (private)
+bible/*
+!bible/example/
+chapters/
+
+# Phase state
+phases/state/
+
+# Environment
+.env
+
+# Dependencies
+node_modules/
+__pycache__/
+
+# Next.js
+.next/
