@@ -41,6 +41,16 @@ export function AppShell() {
     if (timerRef) { clearInterval(timerRef); setTimerRef(null) }
   }
 
+  const refreshTimeline = () => {
+    fetch('/api/bible')
+      .then(r => r.json())
+      .then(bible => {
+        if (bible.timeline) { setTimelineContent(bible.timeline); setPhase('has-timeline') }
+        else { setTimelineContent(''); setPhase('idle') }
+      })
+      .catch(() => {})
+  }
+
   // 스트리밍 시작 시 로그 자동 열기
   const isStreaming = phase === 'streaming' || phase === 'detail-streaming' || phase === 'executing'
   useEffect(() => {
@@ -56,6 +66,7 @@ export function AppShell() {
         selected={selected}
         onNewEpisode={() => setPhase('idle')}
         onResumeWriting={() => setPhase('has-timeline')}
+        onTimelineChange={refreshTimeline}
       />
 
       {/* Main */}

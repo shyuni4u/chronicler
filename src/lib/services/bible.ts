@@ -44,4 +44,24 @@ export class BibleService {
       fs.writeFileSync(timelinePath, content + '\n', 'utf-8')
     }
   }
+
+  deleteTimelineEpisode(title: string): boolean {
+    const timelinePath = path.join(this.dir, 'timeline.md')
+    if (!fs.existsSync(timelinePath)) return false
+
+    const content = fs.readFileSync(timelinePath, 'utf-8')
+    const sections = content.split(/(?=^## )/m)
+    const filtered = sections.filter(s => {
+      const firstLine = s.split('\n')[0]?.trim()
+      return firstLine !== `## ${title}`
+    })
+
+    const result = filtered.join('').trim()
+    if (result) {
+      fs.writeFileSync(timelinePath, result + '\n', 'utf-8')
+    } else {
+      fs.unlinkSync(timelinePath)
+    }
+    return true
+  }
 }

@@ -334,9 +334,19 @@ export function MainContent(props: Props) {
   }
 
   if (phase === 'chapter-done') {
+    const handleExport = () => {
+      const blob = new Blob([chapter], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = chapterPath?.split('/').pop() || 'chapter.md'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
     return (
       <div className="max-w-2xl mx-auto animate-fade-in">
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-3 mb-6">
           <span className="bg-green-500/10 text-green-400 text-xs px-3 py-1 rounded-full">완성</span>
           {chapterPath && <span className="text-gray-700 text-xs font-mono">{chapterPath}</span>}
         </div>
@@ -345,7 +355,11 @@ export function MainContent(props: Props) {
             {chapter}
           </div>
         </div>
-        <div className="mt-8">
+        <div className="flex items-center gap-4 mt-8">
+          <button onClick={handleExport}
+            className="bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-gray-300 px-5 py-2.5 rounded-xl text-sm font-medium transition-all">
+            .md 다운로드
+          </button>
           <button onClick={handleReset}
             className="text-gray-600 hover:text-gray-400 text-sm transition-colors">
             새 에피소드 시작

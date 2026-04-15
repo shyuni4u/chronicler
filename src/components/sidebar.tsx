@@ -8,6 +8,7 @@ interface SidebarProps {
   selected: EpisodeCandidate | null
   onNewEpisode: () => void
   onResumeWriting: () => void
+  onTimelineChange: () => void
 }
 
 function parseTimelineEpisodes(content: string): { title: string; lines: string[] }[] {
@@ -21,9 +22,19 @@ function parseTimelineEpisodes(content: string): { title: string; lines: string[
   })
 }
 
-export function Sidebar({ phase, timelineContent, selected, onNewEpisode, onResumeWriting }: SidebarProps) {
+export function Sidebar({ phase, timelineContent, selected, onNewEpisode, onResumeWriting, onTimelineChange }: SidebarProps) {
   const episodes = parseTimelineEpisodes(timelineContent)
   const isWorking = phase === 'streaming' || phase === 'detail-streaming' || phase === 'executing'
+
+  const handleDelete = async (title: string) => {
+    if (!confirm(`"${title}" 에피소드를 삭제할까요?`)) return
+    await fetch('/api/episodes/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    })
+    onTimelineChange()
+  }
 
   return (
     <aside className="w-64 h-screen flex flex-col border-r border-gray-800/50 bg-gray-950 shrink-0">
@@ -53,20 +64,31 @@ export function Sidebar({ phase, timelineContent, selected, onNewEpisode, onResu
         )}
 
         {episodes.map((ep, i) => (
-          <button
+          <div
             key={i}
-            onClick={onResumeWriting}
-            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/[0.03] transition-colors mb-0.5 group"
+            className="flex items-start gap-1 px-1 mb-0.5 group/item"
           >
-            <p className="text-sm text-gray-400 group-hover:text-gray-200 transition-colors truncate">
-              {ep.title}
-            </p>
-            {ep.lines[0] && (
-              <p className="text-[11px] text-gray-700 truncate mt-0.5">
-                {ep.lines[0].replace(/^-\s*\*\*.*?\*\*:\s*/, '')}
+            <button
+              onClick={onResumeWriting}
+              className="flex-1 text-left px-2 py-2.5 rounded-lg hover:bg-white/[0.03] transition-colors min-w-0"
+            >
+              <p className="text-sm text-gray-400 group-hover/item:text-gray-200 transition-colors truncate">
+                {ep.title}
               </p>
-            )}
-          </button>
+              {ep.lines[0] && (
+                <p className="text-[11px] text-gray-700 truncate mt-0.5">
+                  {ep.lines[0].replace(/^-\s*\*\*.*?\*\*:\s*/, '')}
+                </p>
+              )}
+            </button>
+            <button
+              onClick={() => handleDelete(ep.title)}
+              className="opacity-0 group-hover/item:opacity-100 text-gray-700 hover:text-red-400 px-1.5 py-2.5 text-xs transition-all shrink-0"
+              title="삭제"
+            >
+              ×
+            </button>
+          </div>
         ))}
       </div>
 
