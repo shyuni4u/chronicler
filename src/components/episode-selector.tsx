@@ -21,9 +21,9 @@ interface EpisodeDetail {
 }
 
 type ViewPhase =
-  | 'loading'        // 초기 로딩 (timeline 체크)
+  | 'loading'
   | 'idle'
-  | 'has-timeline'   // timeline 존재 → 바로 집필 가능
+  | 'has-timeline'
   | 'streaming'
   | 'selecting'
   | 'detail-streaming'
@@ -31,59 +31,67 @@ type ViewPhase =
   | 'executing'
   | 'chapter-done'
 
-// --- Terminal Log Component ---
+// ─── Terminal ───────────────────────────────────────────────
 interface LogLine {
   type: 'thinking' | 'text' | 'system' | 'agent'
   content: string
 }
 
-function TerminalLog({ logs, elapsed, currentAgent }: {
+function TerminalLog({ logs, elapsed, currentAgent, label }: {
   logs: LogLine[]
   elapsed: number
   currentAgent?: string
+  label?: string
 }) {
   const bottomRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs.length])
 
   const mins = Math.floor(elapsed / 60)
   const secs = elapsed % 60
-  const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 border-b border-gray-800">
-          <div className="w-3 h-3 rounded-full bg-red-500/70" />
-          <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
-          <div className="w-3 h-3 rounded-full bg-green-500/70" />
-          <span className="ml-2 text-xs text-gray-500 font-mono">
-            chronicler{currentAgent ? ` — ${currentAgent}` : ' — claude'}
+    <div className="max-w-3xl mx-auto animate-fade-in">
+      {label && (
+        <p className="text-center text-gray-500 text-sm mb-4">{label}</p>
+      )}
+      <div className="bg-black/60 border border-gray-800/60 rounded-2xl overflow-hidden backdrop-blur-sm">
+        {/* title bar */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-800/40">
+          <div className="flex gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-700" />
+          </div>
+          <span className="ml-3 text-[11px] text-gray-600 font-mono">
+            {currentAgent || 'chronicler'}
           </span>
-          <span className="ml-auto text-xs text-gray-600 font-mono">{timeStr}</span>
+          <span className="ml-auto text-[11px] text-gray-700 font-mono tabular-nums">
+            {mins}:{secs.toString().padStart(2, '0')}
+          </span>
         </div>
-        <div className="p-4 h-96 overflow-y-auto font-mono text-sm leading-relaxed">
+        {/* body */}
+        <div className="p-5 h-[420px] overflow-y-auto font-mono text-[13px] leading-6">
           {logs.map((line, i) => (
             <div key={i} className={
-              line.type === 'thinking' ? 'text-gray-500 italic' :
-              line.type === 'system' ? 'text-indigo-400 font-semibold' :
-              line.type === 'agent' ? 'text-amber-400' :
-              'text-green-400/90'
+              line.type === 'thinking' ? 'text-gray-600' :
+              line.type === 'system' ? 'text-blue-400/80' :
+              line.type === 'agent' ? 'text-amber-500/80' :
+              'text-gray-300'
             }>
-              <span className="text-gray-700 select-none">
-                {line.type === 'thinking' ? '💭 ' :
-                 line.type === 'system' ? '⚙ ' :
-                 line.type === 'agent' ? '▸ ' :
-                 '> '}
+              <span className="text-gray-800 select-none mr-2">
+                {line.type === 'thinking' ? '~' :
+                 line.type === 'system' ? '*' :
+                 line.type === 'agent' ? '>' :
+                 ' '}
               </span>
-              {line.content}
+              {line.type === 'thinking' ? <span className="italic">{line.content}</span> : line.content}
             </div>
           ))}
-          <div className="text-green-400/90 animate-pulse">
-            <span className="text-gray-700 select-none">{'> '}</span>
-            <span className="inline-block w-2 h-4 bg-green-400/70" />
+          <div className="text-gray-600 animate-pulse">
+            <span className="text-gray-800 select-none mr-2">{' '}</span>
+            <span className="inline-block w-1.5 h-4 bg-gray-600 rounded-sm" />
           </div>
           <div ref={bottomRef} />
         </div>
@@ -92,41 +100,40 @@ function TerminalLog({ logs, elapsed, currentAgent }: {
   )
 }
 
-// --- Chapter View Component ---
+// ─── Chapter View ───────────────────────────────────────────
 function ChapterView({ chapter, chapterPath, onReset }: {
   chapter: string
   chapterPath?: string
   onReset: () => void
 }) {
   return (
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-2 text-center">챕터 완성</h2>
-      {chapterPath && (
-        <p className="text-center text-gray-500 text-sm mb-6">
-          저장됨: <span className="font-mono text-gray-400">{chapterPath}</span>
-        </p>
-      )}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
-        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap leading-relaxed">
+    <div className="max-w-2xl mx-auto animate-fade-in">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 text-sm px-4 py-1.5 rounded-full mb-4">
+          <span>&#10003;</span> 챕터 완성
+        </div>
+        {chapterPath && (
+          <p className="text-gray-600 text-xs font-mono">{chapterPath}</p>
+        )}
+      </div>
+      <div className="bg-gray-900/50 border border-gray-800/50 rounded-2xl p-10">
+        <div className="text-gray-200 text-[15px] whitespace-pre-wrap leading-8 font-[serif]">
           {chapter}
         </div>
       </div>
-      <p className="text-center text-gray-600 text-xs mt-4">
-        Phase 결과: <span className="font-mono">phases/state/</span>
-      </p>
-      <div className="text-center mt-6">
+      <div className="text-center mt-10">
         <button
           onClick={onReset}
-          className="bg-gray-800 hover:bg-gray-700 text-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors"
+          className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
         >
-          새 에피소드 생성
+          새 에피소드 시작
         </button>
       </div>
     </div>
   )
 }
 
-// --- Pipeline SSE Stream ---
+// ─── SSE Helpers ────────────────────────────────────────────
 async function streamPipeline(
   onSystem: (msg: string) => void,
   onAgent: (msg: string) => void,
@@ -139,61 +146,34 @@ async function streamPipeline(
   const res = await fetch('/api/episodes/execute', { method: 'POST' })
   const reader = res.body?.getReader()
   if (!reader) { onError('No stream'); return }
-
   const decoder = new TextDecoder()
   let buffer = ''
-
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() || ''
-
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue
       try {
-        const event = JSON.parse(line.slice(6))
-
-        switch (event.type) {
-          case 'pipeline_start':
-            onSystem(`전체 ${event.totalPhases}개 Phase 실행을 시작합니다`)
-            break
-          case 'phase_start':
-            onSystem(`━━━ Phase: ${event.name} ━━━`)
-            break
-          case 'agent_start':
-            onCurrentAgent(event.agent)
-            onAgent(`${event.agent} 에이전트 시작`)
-            break
-          case 'thinking':
-            onThinking(event.content)
-            break
-          case 'token':
-            onText(event.content)
-            break
-          case 'agent_complete':
-            onAgent(`${event.agent} 완료 ✓`)
-            break
-          case 'phase_complete':
-            onSystem(`Phase "${event.name || event.phase}" 완료`)
-            break
-          case 'pipeline_complete':
-            onChapter(event.chapter, event.chapterPath)
-            break
-          case 'error':
-            onError(event.error)
-            break
+        const ev = JSON.parse(line.slice(6))
+        switch (ev.type) {
+          case 'pipeline_start': onSystem(`${ev.totalPhases}개 Phase 시작`); break
+          case 'phase_start': onSystem(`── ${ev.name} ──`); break
+          case 'agent_start': onCurrentAgent(ev.agent); onAgent(`${ev.agent}`); break
+          case 'thinking': onThinking(ev.content); break
+          case 'token': onText(ev.content); break
+          case 'agent_complete': onAgent(`${ev.agent} done`); break
+          case 'phase_complete': onSystem(`${ev.name || ev.phase} 완료`); break
+          case 'pipeline_complete': onChapter(ev.chapter, ev.chapterPath); break
+          case 'error': onError(ev.error); break
         }
-      } catch {
-        // incomplete JSON
-      }
+      } catch { /* incomplete */ }
     }
   }
 }
 
-// --- Episode SSE Stream Helper ---
 async function streamSSE(
   url: string,
   options: RequestInit,
@@ -206,34 +186,28 @@ async function streamSSE(
   const res = await fetch(url, options)
   const reader = res.body?.getReader()
   if (!reader) { onError('No stream'); return }
-
   const decoder = new TextDecoder()
   let buffer = ''
-
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() || ''
-
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue
       try {
-        const event = JSON.parse(line.slice(6))
-        if (event.type === 'thinking') onThinking(event.content)
-        else if (event.type === 'text') onText(event.content)
-        else if (event.type === 'done') onDone(event.result)
-        else if (event.type === 'error') onError(event.error)
-      } catch {
-        // incomplete JSON
-      }
+        const ev = JSON.parse(line.slice(6))
+        if (ev.type === 'thinking') onThinking(ev.content)
+        else if (ev.type === 'text') onText(ev.content)
+        else if (ev.type === 'done') onDone(ev.result)
+        else if (ev.type === 'error') onError(ev.error)
+      } catch { /* incomplete */ }
     }
   }
 }
 
-// --- Main Component ---
+// ─── Main ───────────────────────────────────────────────────
 export function EpisodeSelector() {
   const [phase, setPhase] = useState<ViewPhase>('loading')
   const [episodes, setEpisodes] = useState<EpisodeCandidate[]>([])
@@ -248,372 +222,261 @@ export function EpisodeSelector() {
   const [currentAgent, setCurrentAgent] = useState<string>()
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // 마운트 시 timeline 존재 여부 확인
   useEffect(() => {
     fetch('/api/bible')
-      .then(res => res.json())
+      .then(r => r.json())
       .then(bible => {
-        if (bible.timeline) {
-          setTimelineContent(bible.timeline)
-          setPhase('has-timeline')
-        } else {
-          setPhase('idle')
-        }
+        if (bible.timeline) { setTimelineContent(bible.timeline); setPhase('has-timeline') }
+        else setPhase('idle')
       })
       .catch(() => setPhase('idle'))
   }, [])
 
-  const startTimer = () => {
-    setElapsed(0)
-    timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
-  }
+  const startTimer = () => { setElapsed(0); timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000) }
+  const stopTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
 
-  const stopTimer = () => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-  }
+  const addSystem = (msg: string) => setLogs(p => [...p, { type: 'system', content: msg }])
+  const addAgent = (msg: string) => setLogs(p => [...p, { type: 'agent', content: msg }])
 
-  const addSystem = (msg: string) => {
-    setLogs(prev => [...prev, { type: 'system', content: msg }])
-  }
-
-  const addAgent = (msg: string) => {
-    setLogs(prev => [...prev, { type: 'agent', content: msg }])
-  }
-
-  const thinkBufRef = useRef('')
-  const textBufRef = useRef('')
+  const thinkBuf = useRef('')
+  const textBuf = useRef('')
 
   const addThinking = (token: string) => {
-    thinkBufRef.current += token
-    const lines = thinkBufRef.current.split('\n')
+    thinkBuf.current += token
+    const lines = thinkBuf.current.split('\n')
     if (lines.length > 1) {
-      const completed = lines.slice(0, -1)
-      setLogs(prev => [...prev, ...completed.filter(l => l.trim()).map(l => ({ type: 'thinking' as const, content: l }))])
-      thinkBufRef.current = lines[lines.length - 1]
+      setLogs(p => [...p, ...lines.slice(0, -1).filter(l => l.trim()).map(l => ({ type: 'thinking' as const, content: l }))])
+      thinkBuf.current = lines[lines.length - 1]
     }
   }
 
   const addText = (token: string) => {
-    textBufRef.current += token
-    const lines = textBufRef.current.split('\n')
+    textBuf.current += token
+    const lines = textBuf.current.split('\n')
     if (lines.length > 1) {
-      const completed = lines.slice(0, -1)
-      setLogs(prev => [...prev, ...completed.filter(l => l.trim()).map(l => ({ type: 'text' as const, content: l }))])
-      textBufRef.current = lines[lines.length - 1]
+      setLogs(p => [...p, ...lines.slice(0, -1).filter(l => l.trim()).map(l => ({ type: 'text' as const, content: l }))])
+      textBuf.current = lines[lines.length - 1]
     }
   }
 
-  const flushBufs = () => {
-    if (thinkBufRef.current.trim()) {
-      setLogs(prev => [...prev, { type: 'thinking', content: thinkBufRef.current.trim() }])
-    }
-    if (textBufRef.current.trim()) {
-      setLogs(prev => [...prev, { type: 'text', content: textBufRef.current.trim() }])
-    }
-    thinkBufRef.current = ''
-    textBufRef.current = ''
+  const flush = () => {
+    if (thinkBuf.current.trim()) setLogs(p => [...p, { type: 'thinking', content: thinkBuf.current.trim() }])
+    if (textBuf.current.trim()) setLogs(p => [...p, { type: 'text', content: textBuf.current.trim() }])
+    thinkBuf.current = ''; textBuf.current = ''
   }
+
+  const resetBufs = () => { thinkBuf.current = ''; textBuf.current = '' }
+
+  // ─── Handlers ─────────────────────────────────────────────
 
   const handleGenerate = async () => {
-    setPhase('streaming')
-    setError(null)
-    setLogs([{ type: 'system', content: '에피소드 후보를 생성합니다...' }])
-    thinkBufRef.current = ''
-    textBufRef.current = ''
-    startTimer()
-
-    await streamSSE(
-      '/api/episodes/suggest',
-      { method: 'POST' },
-      addThinking,
-      addText,
-      (result) => {
-        flushBufs()
-        stopTimer()
-        setEpisodes(result.episodes)
-        setPhase('selecting')
-      },
-      (err) => {
-        flushBufs()
-        stopTimer()
-        setError(err)
-        setPhase('idle')
-      },
+    setPhase('streaming'); setError(null); resetBufs(); startTimer()
+    setLogs([{ type: 'system', content: '에피소드 후보 생성 중' }])
+    await streamSSE('/api/episodes/suggest', { method: 'POST' }, addThinking, addText,
+      (result) => { flush(); stopTimer(); setEpisodes(result.episodes); setPhase('selecting') },
+      (err) => { flush(); stopTimer(); setError(err); setPhase('idle') },
     )
   }
 
   const handleSelect = async (ep: EpisodeCandidate) => {
-    setSelected(ep)
-    setPhase('detail-streaming')
-    setLogs([{ type: 'system', content: `"${ep.title}" 상세 설계를 생성합니다...` }])
-    thinkBufRef.current = ''
-    textBufRef.current = ''
-    startTimer()
+    setSelected(ep); setPhase('detail-streaming'); resetBufs(); startTimer()
+    setLogs([{ type: 'system', content: `${ep.title} 상세 설계 중` }])
+    await streamSSE('/api/episodes/detail', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episode_id: ep.id, episode_summary: ep.twist }),
+    }, addThinking, addText,
+      (result) => { flush(); stopTimer(); setDetail(result); setPhase('detailing') },
+      (err) => { flush(); stopTimer(); setError(err); setPhase('selecting') },
+    )
+  }
 
-    await streamSSE(
-      '/api/episodes/detail',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ episode_id: ep.id, episode_summary: ep.twist }),
-      },
-      addThinking,
-      addText,
-      (result) => {
-        flushBufs()
-        stopTimer()
-        setDetail(result)
-        setPhase('detailing')
-      },
-      (err) => {
-        flushBufs()
-        stopTimer()
-        setError(err)
-        setPhase('selecting')
-      },
+  const runPipeline = async (initLogs: LogLine[]) => {
+    setPhase('executing'); resetBufs(); startTimer(); setLogs(initLogs)
+    await streamPipeline(addSystem, addAgent, addThinking, addText,
+      (text, path) => { flush(); stopTimer(); setChapter(text); setChapterPath(path); setPhase('chapter-done') },
+      (err) => { flush(); stopTimer(); setError(err) },
+      setCurrentAgent,
     )
   }
 
   const handleConfirm = async () => {
     if (!detail || !selected) return
-
-    // 1. timeline에 저장
     try {
       await fetch('/api/episodes/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          episode_id: selected.id,
-          title: selected.title,
-          origin: selected.origin,
-          culture: selected.culture,
-          opening: detail.opening,
-          original: detail.original,
-          error: detail.error,
-          inspiration_moment: detail.inspirationMoment,
+          episode_id: selected.id, title: selected.title,
+          origin: selected.origin, culture: selected.culture,
+          opening: detail.opening, original: detail.original,
+          error: detail.error, inspiration_moment: detail.inspirationMoment,
           possible_endings: detail.possibleEndings,
         }),
       })
-    } catch {
-      setError('확정에 실패했습니다.')
-      return
-    }
-
-    // 2. 바로 Phase 실행 시작
-    setPhase('executing')
-    setLogs([
-      { type: 'system', content: `에피소드 "${selected.title}" 확정 완료` },
-      { type: 'system', content: '집필 파이프라인을 시작합니다...' },
+    } catch { setError('확정 실패'); return }
+    runPipeline([
+      { type: 'system', content: `"${selected.title}" 확정` },
+      { type: 'system', content: '집필 시작' },
     ])
-    thinkBufRef.current = ''
-    textBufRef.current = ''
-    startTimer()
-
-    await streamPipeline(
-      addSystem,
-      addAgent,
-      addThinking,
-      addText,
-      (chapterText, savedPath) => {
-        flushBufs()
-        stopTimer()
-        setChapter(chapterText)
-        setChapterPath(savedPath)
-        setPhase('chapter-done')
-      },
-      (err) => {
-        flushBufs()
-        stopTimer()
-        setError(err)
-      },
-      setCurrentAgent,
-    )
   }
 
-  const handleStartWriting = async () => {
-    setPhase('executing')
-    setLogs([
-      { type: 'system', content: 'timeline.md 감지 — 에피소드 선택 생략' },
-      { type: 'system', content: '집필 파이프라인을 시작합니다...' },
-    ])
-    thinkBufRef.current = ''
-    textBufRef.current = ''
-    startTimer()
-
-    await streamPipeline(
-      addSystem,
-      addAgent,
-      addThinking,
-      addText,
-      (chapterText, savedPath) => {
-        flushBufs()
-        stopTimer()
-        setChapter(chapterText)
-        setChapterPath(savedPath)
-        setPhase('chapter-done')
-      },
-      (err) => {
-        flushBufs()
-        stopTimer()
-        setError(err)
-      },
-      setCurrentAgent,
-    )
-  }
-
-  const handleRegenerate = () => {
-    setSelected(null)
-    setDetail(null)
-    handleGenerate()
-  }
+  const handleStartWriting = () => runPipeline([
+    { type: 'system', content: '기존 에피소드로 집필 시작' },
+  ])
 
   const handleReset = () => {
-    setPhase('idle')
-    setEpisodes([])
-    setSelected(null)
-    setDetail(null)
-    setChapter('')
-    setError(null)
-    setLogs([])
-    setCurrentAgent(undefined)
-    stopTimer()
+    setPhase('idle'); setEpisodes([]); setSelected(null); setDetail(null)
+    setChapter(''); setChapterPath(undefined); setError(null); setLogs([])
+    setCurrentAgent(undefined); stopTimer()
   }
+
+  // ─── Render ───────────────────────────────────────────────
 
   return (
     <div>
       {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="max-w-2xl mx-auto mb-8 animate-fade-in">
+          <div className="bg-red-950/40 border border-red-900/40 text-red-300 text-sm px-5 py-3 rounded-xl">
+            {error}
+          </div>
         </div>
       )}
 
+      {/* Loading */}
       {phase === 'loading' && (
-        <div className="text-center py-12 text-gray-500">불러오는 중...</div>
+        <div className="text-center py-20 text-gray-700 animate-pulse">...</div>
       )}
 
+      {/* Idle */}
       {phase === 'idle' && (
-        <div className="text-center">
+        <div className="text-center animate-fade-in">
+          <p className="text-gray-600 text-sm mb-8">새로운 이야기를 시작하세요</p>
           <button
             onClick={handleGenerate}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-colors"
+            className="bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-gray-200 px-10 py-4 rounded-2xl text-lg font-medium transition-all hover:scale-[1.02]"
           >
-            새 에피소드 생성
+            에피소드 생성
           </button>
         </div>
       )}
 
+      {/* Has Timeline */}
       {phase === 'has-timeline' && (
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-3 text-indigo-400">확정된 에피소드</h2>
-            <div className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+        <div className="max-w-2xl mx-auto animate-fade-in">
+          <div className="bg-gray-900/40 border border-gray-800/40 rounded-2xl p-8 mb-8">
+            <p className="text-xs text-gray-600 uppercase tracking-widest mb-4">이전 에피소드</p>
+            <div className="text-gray-400 text-sm whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
               {timelineContent}
             </div>
           </div>
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-3 justify-center">
             <button
               onClick={handleStartWriting}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-colors"
+              className="bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-gray-200 px-8 py-3.5 rounded-xl font-medium transition-all hover:scale-[1.02]"
             >
-              이 에피소드로 집필 시작
+              이어서 집필
             </button>
             <button
               onClick={() => setPhase('idle')}
-              className="bg-gray-800 hover:bg-gray-700 text-gray-200 px-6 py-4 rounded-xl font-semibold transition-colors"
+              className="text-gray-600 hover:text-gray-400 px-6 py-3.5 text-sm transition-colors"
             >
-              새 에피소드 생성
+              새 에피소드
             </button>
           </div>
         </div>
       )}
 
+      {/* Streaming (Terminal) */}
       {(phase === 'streaming' || phase === 'detail-streaming' || phase === 'executing') && (
-        <TerminalLog logs={logs} elapsed={elapsed} currentAgent={currentAgent} />
+        <TerminalLog
+          logs={logs}
+          elapsed={elapsed}
+          currentAgent={currentAgent}
+          label={
+            phase === 'streaming' ? '에피소드 후보 생성 중' :
+            phase === 'detail-streaming' ? '상세 설계 생성 중' :
+            '집필 중'
+          }
+        />
       )}
 
+      {/* Episode Cards */}
       {phase === 'selecting' && (
-        <div>
-          <h2 className="text-2xl font-bold mb-6 text-center">에피소드 후보</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="animate-fade-in">
+          <p className="text-center text-gray-500 text-sm mb-8">에피소드를 선택하세요</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
             {episodes.map(ep => (
               <button
                 key={ep.id}
                 onClick={() => handleSelect(ep)}
-                className="bg-gray-900 border border-gray-800 hover:border-indigo-500 rounded-xl p-6 text-left transition-colors"
+                className="group bg-gray-900/40 border border-gray-800/40 hover:border-gray-700/60 rounded-2xl p-5 text-left transition-all hover:bg-gray-900/60"
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-medium text-indigo-400 uppercase tracking-wider">
-                    {ep.culture}
-                  </span>
-                  {ep.mood && <span className="text-xs text-gray-500">| {ep.mood}</span>}
-                </div>
-                <h3 className="text-lg font-semibold mb-1">{ep.title}</h3>
-                <p className="text-gray-500 text-xs mb-2">{ep.origin}</p>
-                <p className="text-gray-400 text-sm mb-3">{ep.twist}</p>
-                <p className="text-indigo-300 text-sm italic">&ldquo;{ep.hook}&rdquo;</p>
+                <p className="text-[11px] text-gray-600 uppercase tracking-widest mb-3">{ep.culture}</p>
+                <h3 className="text-base font-semibold mb-1.5 group-hover:text-white transition-colors">{ep.title}</h3>
+                <p className="text-gray-500 text-xs mb-3">{ep.origin}</p>
+                <p className="text-gray-400 text-sm mb-4 line-clamp-2">{ep.twist}</p>
+                <p className="text-gray-500 text-xs italic leading-relaxed">{ep.hook}</p>
               </button>
             ))}
           </div>
-          <div className="text-center mt-6">
-            <button
-              onClick={handleRegenerate}
-              className="text-gray-400 hover:text-gray-200 underline text-sm"
-            >
+          <div className="text-center mt-8">
+            <button onClick={() => { setSelected(null); setDetail(null); handleGenerate() }}
+              className="text-gray-600 hover:text-gray-400 text-xs transition-colors">
               다시 생성
             </button>
           </div>
         </div>
       )}
 
+      {/* Episode Detail */}
       {phase === 'detailing' && detail && selected && (
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold mb-1">{selected.title}</h2>
-          <p className="text-indigo-400 text-sm mb-1">{selected.culture} | {selected.origin}</p>
-          <p className="text-gray-500 text-sm mb-6">{selected.twist}</p>
-
-          <div className="space-y-6">
-            <section>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">결 진입</h3>
-              <p className="text-gray-200">{detail.opening}</p>
-            </section>
-            <section>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">원래 이야기</h3>
-              <p className="text-gray-200">{detail.original}</p>
-            </section>
-            <section>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">어긋난 설정</h3>
-              <p className="text-gray-200">{detail.error}</p>
-            </section>
-            <section>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">영감의 순간</h3>
-              <p className="text-gray-200">{detail.inspirationMoment}</p>
-            </section>
-            <section>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">가능한 결말</h3>
-              <ul className="list-disc list-inside text-gray-200 space-y-1">
-                {(detail.possibleEndings || []).map((ending, i) => (
-                  <li key={i}>{ending}</li>
-                ))}
-              </ul>
-            </section>
+        <div className="max-w-2xl mx-auto animate-fade-in">
+          <div className="mb-10">
+            <p className="text-[11px] text-gray-600 uppercase tracking-widest mb-2">{selected.culture} &middot; {selected.origin}</p>
+            <h2 className="text-2xl font-bold mb-2">{selected.title}</h2>
+            <p className="text-gray-500 text-sm">{selected.twist}</p>
           </div>
 
-          <div className="flex gap-4 mt-8 justify-center">
+          <div className="space-y-8">
+            {[
+              { label: '결 진입', value: detail.opening },
+              { label: '원래 이야기', value: detail.original },
+              { label: '어긋난 설정', value: detail.error },
+              { label: '영감의 순간', value: detail.inspirationMoment },
+            ].map(item => (
+              <div key={item.label}>
+                <p className="text-[11px] text-gray-600 uppercase tracking-widest mb-2">{item.label}</p>
+                <p className="text-gray-300 text-sm leading-relaxed">{item.value}</p>
+              </div>
+            ))}
+
+            <div>
+              <p className="text-[11px] text-gray-600 uppercase tracking-widest mb-2">가능한 결말</p>
+              <div className="space-y-2">
+                {(detail.possibleEndings || []).map((ending, i) => (
+                  <p key={i} className="text-gray-300 text-sm leading-relaxed pl-4 border-l-2 border-gray-800">
+                    {ending}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mt-12">
             <button
               onClick={handleConfirm}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+              className="bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-gray-200 px-8 py-3 rounded-xl font-medium transition-all hover:scale-[1.02]"
             >
               확정 & 집필 시작
             </button>
             <button
-              onClick={handleRegenerate}
-              className="bg-gray-800 hover:bg-gray-700 text-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors"
+              onClick={() => { setSelected(null); setDetail(null); handleGenerate() }}
+              className="text-gray-600 hover:text-gray-400 px-4 py-3 text-sm transition-colors"
             >
               다시 생성
             </button>
             <button
               onClick={() => setPhase('selecting')}
-              className="text-gray-400 hover:text-gray-200 px-6 py-3 rounded-lg transition-colors"
+              className="text-gray-600 hover:text-gray-400 px-4 py-3 text-sm transition-colors"
             >
               뒤로
             </button>
@@ -621,6 +484,7 @@ export function EpisodeSelector() {
         </div>
       )}
 
+      {/* Chapter Done */}
       {phase === 'chapter-done' && (
         <ChapterView chapter={chapter} chapterPath={chapterPath} onReset={handleReset} />
       )}
