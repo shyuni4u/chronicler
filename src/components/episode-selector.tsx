@@ -20,15 +20,28 @@ interface EpisodeDetail {
   possibleEndings: string[]
 }
 
-type Phase = 'idle' | 'streaming' | 'selecting' | 'detail-streaming' | 'detailing' | 'confirmed'
+type ViewPhase =
+  | 'loading'        // 초기 로딩 (timeline 체크)
+  | 'idle'
+  | 'has-timeline'   // timeline 존재 → 바로 집필 가능
+  | 'streaming'
+  | 'selecting'
+  | 'detail-streaming'
+  | 'detailing'
+  | 'executing'
+  | 'chapter-done'
 
 // --- Terminal Log Component ---
 interface LogLine {
-  type: 'thinking' | 'text' | 'system'
+  type: 'thinking' | 'text' | 'system' | 'agent'
   content: string
 }
 
-function TerminalLog({ logs, elapsed }: { logs: LogLine[]; elapsed: number }) {
+function TerminalLog({ logs, elapsed, currentAgent }: {
+  logs: LogLine[]
+  elapsed: number
+  currentAgent?: string
+}) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -37,9 +50,7 @@ function TerminalLog({ logs, elapsed }: { logs: LogLine[]; elapsed: number }) {
 
   const mins = Math.floor(elapsed / 60)
   const secs = elapsed % 60
-  const timeStr = mins > 0
-    ? `${mins}:${secs.toString().padStart(2, '0')}`
-    : `0:${secs.toString().padStart(2, '0')}`
+  const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -48,18 +59,24 @@ function TerminalLog({ logs, elapsed }: { logs: LogLine[]; elapsed: number }) {
           <div className="w-3 h-3 rounded-full bg-red-500/70" />
           <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
           <div className="w-3 h-3 rounded-full bg-green-500/70" />
-          <span className="ml-2 text-xs text-gray-500 font-mono">chronicler — claude</span>
+          <span className="ml-2 text-xs text-gray-500 font-mono">
+            chronicler{currentAgent ? ` — ${currentAgent}` : ' — claude'}
+          </span>
           <span className="ml-auto text-xs text-gray-600 font-mono">{timeStr}</span>
         </div>
-        <div className="p-4 h-80 overflow-y-auto font-mono text-sm leading-relaxed">
+        <div className="p-4 h-96 overflow-y-auto font-mono text-sm leading-relaxed">
           {logs.map((line, i) => (
             <div key={i} className={
               line.type === 'thinking' ? 'text-gray-500 italic' :
-              line.type === 'system' ? 'text-indigo-400' :
+              line.type === 'system' ? 'text-indigo-400 font-semibold' :
+              line.type === 'agent' ? 'text-amber-400' :
               'text-green-400/90'
             }>
               <span className="text-gray-700 select-none">
-                {line.type === 'thinking' ? '💭 ' : line.type === 'system' ? '⚙ ' : '> '}
+                {line.type === 'thinking' ? '💭 ' :
+                 line.type === 'system' ? '⚙ ' :
+                 line.type === 'agent' ? '▸ ' :
+                 '> '}
               </span>
               {line.content}
             </div>
@@ -75,7 +92,108 @@ function TerminalLog({ logs, elapsed }: { logs: LogLine[]; elapsed: number }) {
   )
 }
 
-// --- SSE Stream Helper ---
+// --- Chapter View Component ---
+function ChapterView({ chapter, chapterPath, onReset }: {
+  chapter: string
+  chapterPath?: string
+  onReset: () => void
+}) {
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold mb-2 text-center">챕터 완성</h2>
+      {chapterPath && (
+        <p className="text-center text-gray-500 text-sm mb-6">
+          저장됨: <span className="font-mono text-gray-400">{chapterPath}</span>
+        </p>
+      )}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
+        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap leading-relaxed">
+          {chapter}
+        </div>
+      </div>
+      <p className="text-center text-gray-600 text-xs mt-4">
+        Phase 결과: <span className="font-mono">phases/state/</span>
+      </p>
+      <div className="text-center mt-6">
+        <button
+          onClick={onReset}
+          className="bg-gray-800 hover:bg-gray-700 text-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors"
+        >
+          새 에피소드 생성
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// --- Pipeline SSE Stream ---
+async function streamPipeline(
+  onSystem: (msg: string) => void,
+  onAgent: (msg: string) => void,
+  onThinking: (text: string) => void,
+  onText: (text: string) => void,
+  onChapter: (chapter: string, chapterPath?: string) => void,
+  onError: (error: string) => void,
+  onCurrentAgent: (agent: string) => void,
+) {
+  const res = await fetch('/api/episodes/execute', { method: 'POST' })
+  const reader = res.body?.getReader()
+  if (!reader) { onError('No stream'); return }
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      try {
+        const event = JSON.parse(line.slice(6))
+
+        switch (event.type) {
+          case 'pipeline_start':
+            onSystem(`전체 ${event.totalPhases}개 Phase 실행을 시작합니다`)
+            break
+          case 'phase_start':
+            onSystem(`━━━ Phase: ${event.name} ━━━`)
+            break
+          case 'agent_start':
+            onCurrentAgent(event.agent)
+            onAgent(`${event.agent} 에이전트 시작`)
+            break
+          case 'thinking':
+            onThinking(event.content)
+            break
+          case 'token':
+            onText(event.content)
+            break
+          case 'agent_complete':
+            onAgent(`${event.agent} 완료 ✓`)
+            break
+          case 'phase_complete':
+            onSystem(`Phase "${event.name || event.phase}" 완료`)
+            break
+          case 'pipeline_complete':
+            onChapter(event.chapter, event.chapterPath)
+            break
+          case 'error':
+            onError(event.error)
+            break
+        }
+      } catch {
+        // incomplete JSON
+      }
+    }
+  }
+}
+
+// --- Episode SSE Stream Helper ---
 async function streamSSE(
   url: string,
   options: RequestInit,
@@ -117,14 +235,33 @@ async function streamSSE(
 
 // --- Main Component ---
 export function EpisodeSelector() {
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [phase, setPhase] = useState<ViewPhase>('loading')
   const [episodes, setEpisodes] = useState<EpisodeCandidate[]>([])
   const [selected, setSelected] = useState<EpisodeCandidate | null>(null)
   const [detail, setDetail] = useState<EpisodeDetail | null>(null)
+  const [chapter, setChapter] = useState('')
+  const [chapterPath, setChapterPath] = useState<string>()
+  const [timelineContent, setTimelineContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [logs, setLogs] = useState<LogLine[]>([])
   const [elapsed, setElapsed] = useState(0)
+  const [currentAgent, setCurrentAgent] = useState<string>()
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 마운트 시 timeline 존재 여부 확인
+  useEffect(() => {
+    fetch('/api/bible')
+      .then(res => res.json())
+      .then(bible => {
+        if (bible.timeline) {
+          setTimelineContent(bible.timeline)
+          setPhase('has-timeline')
+        } else {
+          setPhase('idle')
+        }
+      })
+      .catch(() => setPhase('idle'))
+  }, [])
 
   const startTimer = () => {
     setElapsed(0)
@@ -135,7 +272,14 @@ export function EpisodeSelector() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
   }
 
-  // 토큰을 받아서 줄 단위로 로그에 추가
+  const addSystem = (msg: string) => {
+    setLogs(prev => [...prev, { type: 'system', content: msg }])
+  }
+
+  const addAgent = (msg: string) => {
+    setLogs(prev => [...prev, { type: 'agent', content: msg }])
+  }
+
   const thinkBufRef = useRef('')
   const textBufRef = useRef('')
 
@@ -232,6 +376,8 @@ export function EpisodeSelector() {
 
   const handleConfirm = async () => {
     if (!detail || !selected) return
+
+    // 1. timeline에 저장
     try {
       await fetch('/api/episodes/confirm', {
         method: 'POST',
@@ -248,10 +394,71 @@ export function EpisodeSelector() {
           possible_endings: detail.possibleEndings,
         }),
       })
-      setPhase('confirmed')
     } catch {
       setError('확정에 실패했습니다.')
+      return
     }
+
+    // 2. 바로 Phase 실행 시작
+    setPhase('executing')
+    setLogs([
+      { type: 'system', content: `에피소드 "${selected.title}" 확정 완료` },
+      { type: 'system', content: '집필 파이프라인을 시작합니다...' },
+    ])
+    thinkBufRef.current = ''
+    textBufRef.current = ''
+    startTimer()
+
+    await streamPipeline(
+      addSystem,
+      addAgent,
+      addThinking,
+      addText,
+      (chapterText, savedPath) => {
+        flushBufs()
+        stopTimer()
+        setChapter(chapterText)
+        setChapterPath(savedPath)
+        setPhase('chapter-done')
+      },
+      (err) => {
+        flushBufs()
+        stopTimer()
+        setError(err)
+      },
+      setCurrentAgent,
+    )
+  }
+
+  const handleStartWriting = async () => {
+    setPhase('executing')
+    setLogs([
+      { type: 'system', content: 'timeline.md 감지 — 에피소드 선택 생략' },
+      { type: 'system', content: '집필 파이프라인을 시작합니다...' },
+    ])
+    thinkBufRef.current = ''
+    textBufRef.current = ''
+    startTimer()
+
+    await streamPipeline(
+      addSystem,
+      addAgent,
+      addThinking,
+      addText,
+      (chapterText, savedPath) => {
+        flushBufs()
+        stopTimer()
+        setChapter(chapterText)
+        setChapterPath(savedPath)
+        setPhase('chapter-done')
+      },
+      (err) => {
+        flushBufs()
+        stopTimer()
+        setError(err)
+      },
+      setCurrentAgent,
+    )
   }
 
   const handleRegenerate = () => {
@@ -265,8 +472,10 @@ export function EpisodeSelector() {
     setEpisodes([])
     setSelected(null)
     setDetail(null)
+    setChapter('')
     setError(null)
     setLogs([])
+    setCurrentAgent(undefined)
     stopTimer()
   }
 
@@ -276,6 +485,10 @@ export function EpisodeSelector() {
         <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
           {error}
         </div>
+      )}
+
+      {phase === 'loading' && (
+        <div className="text-center py-12 text-gray-500">불러오는 중...</div>
       )}
 
       {phase === 'idle' && (
@@ -289,8 +502,33 @@ export function EpisodeSelector() {
         </div>
       )}
 
-      {(phase === 'streaming' || phase === 'detail-streaming') && (
-        <TerminalLog logs={logs} elapsed={elapsed} />
+      {phase === 'has-timeline' && (
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-3 text-indigo-400">확정된 에피소드</h2>
+            <div className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+              {timelineContent}
+            </div>
+          </div>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={handleStartWriting}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl text-lg font-semibold transition-colors"
+            >
+              이 에피소드로 집필 시작
+            </button>
+            <button
+              onClick={() => setPhase('idle')}
+              className="bg-gray-800 hover:bg-gray-700 text-gray-200 px-6 py-4 rounded-xl font-semibold transition-colors"
+            >
+              새 에피소드 생성
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(phase === 'streaming' || phase === 'detail-streaming' || phase === 'executing') && (
+        <TerminalLog logs={logs} elapsed={elapsed} currentAgent={currentAgent} />
       )}
 
       {phase === 'selecting' && (
@@ -365,7 +603,7 @@ export function EpisodeSelector() {
               onClick={handleConfirm}
               className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
             >
-              확정
+              확정 & 집필 시작
             </button>
             <button
               onClick={handleRegenerate}
@@ -383,18 +621,8 @@ export function EpisodeSelector() {
         </div>
       )}
 
-      {phase === 'confirmed' && (
-        <div className="text-center py-12">
-          <div className="text-4xl mb-4">✓</div>
-          <h2 className="text-2xl font-bold mb-2">에피소드가 확정되었습니다</h2>
-          <p className="text-gray-400 mb-6">bible/timeline.md에 추가되었습니다.</p>
-          <button
-            onClick={handleReset}
-            className="bg-gray-800 hover:bg-gray-700 text-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            새 에피소드 생성
-          </button>
-        </div>
+      {phase === 'chapter-done' && (
+        <ChapterView chapter={chapter} chapterPath={chapterPath} onReset={handleReset} />
       )}
     </div>
   )

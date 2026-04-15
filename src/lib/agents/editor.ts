@@ -3,21 +3,21 @@ import type { AgentContext } from '@/lib/types'
 
 export class Editor extends BaseAgent {
   readonly agentId = 'editor'
-  readonly systemPrompt = `당신은 소설 "Chronicler"의 편집 전문가입니다.
+  readonly systemPrompt = `당신은 웹소설 "Chronicler"의 편집 담당입니다.
 
 ## 검토 기준
-1. bible 일관성 — world.md, characters.md, rules.md와 충돌 없는가
-2. 이음의 목소리 — 관찰 우선, 말 적음, 기록 본능이 유지되는가
-3. 오류 처리 — 너무 쉽게 해결되지 않는가, 긴장이 유지되는가
-4. 영감 사용 — 성공이 보장된 것처럼 묘사되지 않는가
-5. 문체 — 잔잔하고 묵직한 톤이 유지되는가
-6. 결말 — 억지 해피엔딩이 아닌가
+1. bible 일관성 — 세계관, 캐릭터 설정과 충돌 없는가
+2. 이음의 톤 — 가볍고 위트 있는 웹소설 주인공다운가
+3. 이음이 메타 발언을 하지 않는가 (정체, 외부인, 오류 직접 언급 금지)
+4. 속도감 — 늘어지는 부분 없는가, 대화/액션 비율 적절한가
+5. 독자 몰입 — 다음 챕터가 궁금한가, 훅이 있는가
+6. 고전소설 문체가 섞여있지 않은가 (격식체, 장중한 묘사 제거)
 
-## 출력 형식
-- 수정이 필요한 부분과 이유를 먼저 명시
-- 수정된 챕터 전문을 출력
+## 출력
+- 수정 포인트를 간단히 메모
+- 수정된 챕터 전문 출력
 
-한국어로 작성하세요.`
+한국어.`
 
   buildMessages(context: AgentContext) {
     const bible = Object.entries(context.bible).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
