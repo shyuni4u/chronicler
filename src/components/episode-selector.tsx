@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface EpisodeCandidate {
   id: string
@@ -19,45 +19,214 @@ interface EpisodeDetail {
   possibleEndings: string[]
 }
 
-type Phase = 'idle' | 'loading' | 'selecting' | 'detailing' | 'detail-loading' | 'confirmed'
+type Phase = 'idle' | 'streaming' | 'selecting' | 'detail-streaming' | 'detailing' | 'confirmed'
 
+// --- Terminal Log Component ---
+interface LogLine {
+  type: 'thinking' | 'text' | 'system'
+  content: string
+}
+
+function TerminalLog({ logs, elapsed }: { logs: LogLine[]; elapsed: number }) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [logs.length])
+
+  const mins = Math.floor(elapsed / 60)
+  const secs = elapsed % 60
+  const timeStr = mins > 0
+    ? `${mins}:${secs.toString().padStart(2, '0')}`
+    : `0:${secs.toString().padStart(2, '0')}`
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-900 border-b border-gray-800">
+          <div className="w-3 h-3 rounded-full bg-red-500/70" />
+          <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
+          <div className="w-3 h-3 rounded-full bg-green-500/70" />
+          <span className="ml-2 text-xs text-gray-500 font-mono">chronicler — claude</span>
+          <span className="ml-auto text-xs text-gray-600 font-mono">{timeStr}</span>
+        </div>
+        <div className="p-4 h-80 overflow-y-auto font-mono text-sm leading-relaxed">
+          {logs.map((line, i) => (
+            <div key={i} className={
+              line.type === 'thinking' ? 'text-gray-500 italic' :
+              line.type === 'system' ? 'text-indigo-400' :
+              'text-green-400/90'
+            }>
+              <span className="text-gray-700 select-none">
+                {line.type === 'thinking' ? '💭 ' : line.type === 'system' ? '⚙ ' : '> '}
+              </span>
+              {line.content}
+            </div>
+          ))}
+          <div className="text-green-400/90 animate-pulse">
+            <span className="text-gray-700 select-none">{'> '}</span>
+            <span className="inline-block w-2 h-4 bg-green-400/70" />
+          </div>
+          <div ref={bottomRef} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- SSE Stream Helper ---
+async function streamSSE(
+  url: string,
+  options: RequestInit,
+  onThinking: (text: string) => void,
+  onText: (text: string) => void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onDone: (result: any) => void,
+  onError: (error: string) => void,
+) {
+  const res = await fetch(url, options)
+  const reader = res.body?.getReader()
+  if (!reader) { onError('No stream'); return }
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      try {
+        const event = JSON.parse(line.slice(6))
+        if (event.type === 'thinking') onThinking(event.content)
+        else if (event.type === 'text') onText(event.content)
+        else if (event.type === 'done') onDone(event.result)
+        else if (event.type === 'error') onError(event.error)
+      } catch {
+        // incomplete JSON
+      }
+    }
+  }
+}
+
+// --- Main Component ---
 export function EpisodeSelector() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [episodes, setEpisodes] = useState<EpisodeCandidate[]>([])
   const [selected, setSelected] = useState<EpisodeCandidate | null>(null)
   const [detail, setDetail] = useState<EpisodeDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [logs, setLogs] = useState<LogLine[]>([])
+  const [elapsed, setElapsed] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startTimer = () => {
+    setElapsed(0)
+    timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
+  }
+
+  const stopTimer = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+  }
+
+  // 토큰을 받아서 줄 단위로 로그에 추가
+  const thinkBufRef = useRef('')
+  const textBufRef = useRef('')
+
+  const addThinking = (token: string) => {
+    thinkBufRef.current += token
+    const lines = thinkBufRef.current.split('\n')
+    if (lines.length > 1) {
+      const completed = lines.slice(0, -1)
+      setLogs(prev => [...prev, ...completed.filter(l => l.trim()).map(l => ({ type: 'thinking' as const, content: l }))])
+      thinkBufRef.current = lines[lines.length - 1]
+    }
+  }
+
+  const addText = (token: string) => {
+    textBufRef.current += token
+    const lines = textBufRef.current.split('\n')
+    if (lines.length > 1) {
+      const completed = lines.slice(0, -1)
+      setLogs(prev => [...prev, ...completed.filter(l => l.trim()).map(l => ({ type: 'text' as const, content: l }))])
+      textBufRef.current = lines[lines.length - 1]
+    }
+  }
+
+  const flushBufs = () => {
+    if (thinkBufRef.current.trim()) {
+      setLogs(prev => [...prev, { type: 'thinking', content: thinkBufRef.current.trim() }])
+    }
+    if (textBufRef.current.trim()) {
+      setLogs(prev => [...prev, { type: 'text', content: textBufRef.current.trim() }])
+    }
+    thinkBufRef.current = ''
+    textBufRef.current = ''
+  }
 
   const handleGenerate = async () => {
-    setPhase('loading')
+    setPhase('streaming')
     setError(null)
-    try {
-      const res = await fetch('/api/episodes/suggest', { method: 'POST' })
-      const data = await res.json()
-      setEpisodes(data.episodes)
-      setPhase('selecting')
-    } catch (e) {
-      setError('에피소드 생성에 실패했습니다. 다시 시도해주세요.')
-      setPhase('idle')
-    }
+    setLogs([{ type: 'system', content: '에피소드 후보를 생성합니다...' }])
+    thinkBufRef.current = ''
+    textBufRef.current = ''
+    startTimer()
+
+    await streamSSE(
+      '/api/episodes/suggest',
+      { method: 'POST' },
+      addThinking,
+      addText,
+      (result) => {
+        flushBufs()
+        stopTimer()
+        setEpisodes(result.episodes)
+        setPhase('selecting')
+      },
+      (err) => {
+        flushBufs()
+        stopTimer()
+        setError(err)
+        setPhase('idle')
+      },
+    )
   }
 
   const handleSelect = async (ep: EpisodeCandidate) => {
     setSelected(ep)
-    setPhase('detail-loading')
-    try {
-      const res = await fetch('/api/episodes/detail', {
+    setPhase('detail-streaming')
+    setLogs([{ type: 'system', content: `"${ep.title}" 상세 설계를 생성합니다...` }])
+    thinkBufRef.current = ''
+    textBufRef.current = ''
+    startTimer()
+
+    await streamSSE(
+      '/api/episodes/detail',
+      {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ episode_id: ep.id, episode_summary: ep.summary }),
-      })
-      const data = await res.json()
-      setDetail(data)
-      setPhase('detailing')
-    } catch (e) {
-      setError('상세 설계 생성에 실패했습니다.')
-      setPhase('selecting')
-    }
+      },
+      addThinking,
+      addText,
+      (result) => {
+        flushBufs()
+        stopTimer()
+        setDetail(result)
+        setPhase('detailing')
+      },
+      (err) => {
+        flushBufs()
+        stopTimer()
+        setError(err)
+        setPhase('selecting')
+      },
+    )
   }
 
   const handleConfirm = async () => {
@@ -77,7 +246,7 @@ export function EpisodeSelector() {
         }),
       })
       setPhase('confirmed')
-    } catch (e) {
+    } catch {
       setError('확정에 실패했습니다.')
     }
   }
@@ -94,6 +263,8 @@ export function EpisodeSelector() {
     setSelected(null)
     setDetail(null)
     setError(null)
+    setLogs([])
+    stopTimer()
   }
 
   return (
@@ -115,13 +286,8 @@ export function EpisodeSelector() {
         </div>
       )}
 
-      {(phase === 'loading' || phase === 'detail-loading') && (
-        <div className="text-center py-20">
-          <div className="inline-block w-8 h-8 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-400">
-            {phase === 'loading' ? 'AI가 에피소드 후보를 생성하고 있습니다...' : '상세 설계를 생성하고 있습니다...'}
-          </p>
-        </div>
+      {(phase === 'streaming' || phase === 'detail-streaming') && (
+        <TerminalLog logs={logs} elapsed={elapsed} />
       )}
 
       {phase === 'selecting' && (
@@ -179,7 +345,7 @@ export function EpisodeSelector() {
             <section>
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">가능한 결말</h3>
               <ul className="list-disc list-inside text-gray-200 space-y-1">
-                {detail.possibleEndings.map((ending, i) => (
+                {(detail.possibleEndings || []).map((ending, i) => (
                   <li key={i}>{ending}</li>
                 ))}
               </ul>

@@ -41,8 +41,12 @@ export class PhaseRunner {
           const collected: string[] = []
 
           for await (const token of agent.run(context)) {
-            collected.push(token)
-            yield sseEvent('token', { agent: agentId, content: token })
+            if (token.type === 'text') {
+              collected.push(token.content)
+              yield sseEvent('token', { agent: agentId, content: token.content })
+            } else if (token.type === 'result') {
+              collected.push(token.content)
+            }
           }
 
           const full = collected.join('')

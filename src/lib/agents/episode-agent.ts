@@ -11,6 +11,32 @@ const DETAIL_SYSTEM = `You are an episode designer. Given an episode idea, creat
 entry_point, original_story, divergence, inspiration, possible_endings (2-3).
 Respond with valid JSON only. Write in Korean.`
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function normalizeSuggestResponse(raw: any) {
+  const episodes = raw.episodes || raw
+  return {
+    episodes: (Array.isArray(episodes) ? episodes : []).map((ep: any) => ({
+      id: ep.id || ep.episode_id || `ep_${Date.now()}`,
+      category: ep.category || '',
+      title: ep.title || '',
+      summary: ep.summary || '',
+      hook: ep.hook || '',
+    })),
+  }
+}
+
+function normalizeDetailResponse(raw: any) {
+  return {
+    episodeId: raw.episodeId || raw.episode_id || '',
+    entryPoint: raw.entryPoint || raw.entry_point || '',
+    originalStory: raw.originalStory || raw.original_story || '',
+    divergence: raw.divergence || '',
+    inspiration: raw.inspiration || '',
+    possibleEndings: raw.possibleEndings || raw.possible_endings || [],
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 export class EpisodeAgent extends BaseAgent {
   readonly agentId = 'episode'
   readonly systemPrompt = SUGGEST_SYSTEM
@@ -24,13 +50,16 @@ export class EpisodeAgent extends BaseAgent {
     const bibleText = Object.entries(bible).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
     const prompt = `현재 바이블:\n${bibleText}\n\n에피소드 후보 5개를 JSON으로 제안해주세요.`
     const text = await claudePrompt(prompt, SUGGEST_SYSTEM)
-    return JSON.parse(text)
+    return normalizeSuggestResponse(JSON.parse(text))
   }
 
   async detail(episodeId: string, bible: Record<string, string>, episodeSummary = '') {
     const bibleText = Object.entries(bible).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
     const prompt = `바이블:\n${bibleText}\n\n에피소드 ID: ${episodeId}\n${episodeSummary}\n\n상세 설계를 JSON으로 작성해주세요.`
     const text = await claudePrompt(prompt, DETAIL_SYSTEM)
-    return JSON.parse(text)
+    return normalizeDetailResponse(JSON.parse(text))
   }
+
+  normalizeSuggest = normalizeSuggestResponse
+  normalizeDetail = normalizeDetailResponse
 }
