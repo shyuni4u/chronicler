@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { getAgent } from '@/lib/agents/registry'
 import { DAGEngine } from './engine'
 import { DatabaseService } from '@/lib/services/database'
@@ -20,7 +19,6 @@ export class PhaseRunner {
     this.db.initPhase(phaseId)
     this.db.updatePhaseStatus(phaseId, 'running')
 
-    const client = new Anthropic()
     const bibleData = this.bible.readAll()
     const agentOutputs: Record<string, string> = {}
     const levels = this.engine.agentExecutionOrder(phaseId)
@@ -42,7 +40,7 @@ export class PhaseRunner {
           const runId = this.db.startAgentRun(phaseId, agentId)
           const collected: string[] = []
 
-          for await (const token of agent.run(context, client)) {
+          for await (const token of agent.run(context)) {
             collected.push(token)
             yield sseEvent('token', { agent: agentId, content: token })
           }

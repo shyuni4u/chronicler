@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { BaseAgent, DEFAULT_MODEL } from './base'
+import { claudePrompt } from '@/lib/claude-cli'
+import { BaseAgent } from './base'
 import type { AgentContext } from '@/lib/types'
 
 const SUGGEST_SYSTEM = `You are an episode designer for a novel writing system.
@@ -20,29 +20,17 @@ export class EpisodeAgent extends BaseAgent {
     return [{ role: 'user', content: `현재 바이블:\n${bible}\n\n에피소드 후보 5개를 JSON으로 제안해주세요.` }]
   }
 
-  async suggest(bible: Record<string, string>, client?: Anthropic) {
-    if (!client) client = new Anthropic()
+  async suggest(bible: Record<string, string>) {
     const bibleText = Object.entries(bible).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
-    const message = await client.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: 2048,
-      system: SUGGEST_SYSTEM,
-      messages: [{ role: 'user', content: `현재 바이블:\n${bibleText}\n\n에피소드 후보 5개를 JSON으로 제안해주세요.` }],
-    })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const prompt = `현재 바이블:\n${bibleText}\n\n에피소드 후보 5개를 JSON으로 제안해주세요.`
+    const text = await claudePrompt(prompt, SUGGEST_SYSTEM)
     return JSON.parse(text)
   }
 
-  async detail(episodeId: string, bible: Record<string, string>, episodeSummary = '', client?: Anthropic) {
-    if (!client) client = new Anthropic()
+  async detail(episodeId: string, bible: Record<string, string>, episodeSummary = '') {
     const bibleText = Object.entries(bible).map(([k, v]) => `## ${k}\n${v}`).join('\n\n')
-    const message = await client.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: 2048,
-      system: DETAIL_SYSTEM,
-      messages: [{ role: 'user', content: `바이블:\n${bibleText}\n\n에피소드 ID: ${episodeId}\n${episodeSummary}\n\n상세 설계를 JSON으로 작성해주세요.` }],
-    })
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const prompt = `바이블:\n${bibleText}\n\n에피소드 ID: ${episodeId}\n${episodeSummary}\n\n상세 설계를 JSON으로 작성해주세요.`
+    const text = await claudePrompt(prompt, DETAIL_SYSTEM)
     return JSON.parse(text)
   }
 }
