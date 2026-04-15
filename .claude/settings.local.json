@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/next/package.json'\\); console.log\\(pkg.version\\);\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/typescript/package.json'\\); console.log\\(pkg.version\\);\")",
+      "Bash(npm run *)",
+      "Bash(npx vitest *)"
+    ]
+  }
+}

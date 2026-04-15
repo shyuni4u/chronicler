@@ -188,6 +188,69 @@ Anthropic SDK `client.messages.stream()` → SSE 이벤트로 변환.
 | GET | `/api/bible` | bible 파일 목록 + 내용 |
 | GET | `/api/chapters` | 생성된 챕터 목록 |
 | GET | `/api/chapters/{num}` | 특정 챕터 내용 |
+| POST | `/api/episodes/suggest` | 에피소드 후보 5개 생성 (일반 JSON) |
+| POST | `/api/episodes/detail` | 선택한 에피소드 상세 설계 (일반 JSON) |
+| POST | `/api/episodes/confirm` | 에피소드 확정 → bible/timeline.md 추가 |
+
+## Episode Selector
+
+### 개요
+AI가 에피소드 후보 5개를 제안하고, 사용자가 선택하면 상세 설계를 생성한다.
+확정 시 `bible/timeline.md`에 자동 추가된다. SSE 불필요 — 일반 JSON 응답.
+
+### 흐름
+1. `POST /api/episodes/suggest` → 카테고리별 후보 5개 반환
+   - 한국 전래동화, 동아시아 신화, 서양 신화, 서양 동화, 중동/인도 설화 각 1개
+2. 사용자가 카드 UI에서 후보 선택
+3. `POST /api/episodes/detail` → 상세 설계 생성
+   - 진입 순간, 원래 이야기, 어긋난 설정, 영감의 순간, 가능한 결말
+4. 사용자가 확정 또는 "다시 생성" 선택
+5. `POST /api/episodes/confirm` → `bible/timeline.md`에 추가
+
+### 응답 스키마
+
+```json
+// POST /api/episodes/suggest 응답
+{
+  "episodes": [
+    {
+      "id": "ep_001",
+      "category": "한국 전래동화",
+      "title": "콩쥐팥쥐",
+      "summary": "계모에게 학대받는 소녀의 이야기",
+      "hook": "만약 콩쥐가 복수를 선택했다면?"
+    }
+  ]
+}
+
+// POST /api/episodes/detail 요청
+{ "episode_id": "ep_001" }
+
+// POST /api/episodes/detail 응답
+{
+  "episode_id": "ep_001",
+  "entry_point": "콩쥐가 잔치에 가는 대신...",
+  "original_story": "원래 이야기 요약",
+  "divergence": "어긋난 설정",
+  "inspiration": "영감의 순간",
+  "possible_endings": ["결말 A", "결말 B"]
+}
+
+// POST /api/episodes/confirm 요청
+{ "episode_id": "ep_001" }
+```
+
+### 파일 구조
+
+```
+backend/
+  api/
+    episodes.py       # 에피소드 라우트
+  agents/
+    episode_agent.py  # 에피소드 전용 에이전트
+  services/
+    bible.py          # write_timeline() 메서드 추가
+```
 
 ## SQLite 스키마
 

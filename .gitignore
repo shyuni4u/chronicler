@@ -1,7 +1,7 @@
 # Novel content (private)
 bible/*
 !bible/example/
-chapters/
+/chapters/
 
 # Phase state
 phases/state/

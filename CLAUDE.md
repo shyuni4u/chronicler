@@ -65,10 +65,24 @@ hooks/
 
 ## Stack
 
-- backend: FastAPI + Anthropic SDK
-- frontend: Next.js — localhost 웹 UI
-- streaming: SSE
-- state: JSON / SQLite (bible + phase state)
+- framework: Next.js 15 (App Router, TypeScript, Tailwind CSS)
+- AI: @anthropic-ai/sdk (server-side, Route Handlers)
+- streaming: SSE (via Route Handlers)
+- state: better-sqlite3 (phase state, chapter metadata)
+- bible: 마크다운 파일 (bible/)
+- test: vitest
+
+---
+
+## Features
+
+### Episode Selector
+
+- AI가 에피소드 후보 5개를 제안 (한국 전래동화, 동아시아 신화, 서양 신화, 서양 동화, 중동/인도 설화 각 1개)
+- 카드 UI에서 후보 선택
+- 선택 시 상세 설계 자동 생성 (진입 순간, 원래 이야기, 어긋난 설정, 영감의 순간, 가능한 결말)
+- 확정 시 bible/timeline.md에 자동 추가
+- 다시 생성 기능 포함
 
 ---
 
